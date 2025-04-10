@@ -337,9 +337,6 @@ export default () => {
                                         onClick={() => {
                                             connectToRoom(location.pathname.slice(1))
                                             setReceiving(true)
-                                            // setFileName("tesasdfasdfasdfasdfasdfasttesasdfasdfasdfasdfasdfast.ext")
-                                            // setDownloadPercentage("70")
-                                            // setDownloadStatuses({ "tesasdfasdfasdfasdfasdfasttesasdfasdfasdfasdfasdfast.ext": false, "tesasdfasdfasdfasdfasdfasttesasdfasdfasdfasdfasdfast.file": true })
                                         }}
                                     >
                                         Ready to Download
