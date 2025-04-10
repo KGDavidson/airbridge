@@ -1,0 +1,313 @@
+import React, { useState, useEffect, useRef } from 'react';
+import SimplePeer from 'simple-peer';
+
+type CreateMessage = {
+  type: 'create';
+  roomId: string;
+  clientId?: string;
+};
+
+type JoinMessage = {
+  type: 'join';
+  roomId: string;
+  clientId?: string;
+};
+
+type SignalMessage = {
+  type: 'signal';
+  peerId: string;
+  signal: SimplePeer.SignalData;
+};
+
+type JoinedResponseMessage = {
+  type: 'joined';
+  roomId: string;
+  clientId: string;
+  peers: string[];
+};
+
+type PeerJoinedMessage = {
+  type: 'peer-joined';
+  peerId: string;
+};
+
+type PeerLeftMessage = {
+  type: 'peer-left';
+  peerId: string;
+};
+
+type SignalResponseMessage = {
+  type: 'signal';
+  peerId: string;
+  signal: SimplePeer.SignalData;
+};
+
+type WebSocketMessage =
+  | CreateMessage
+  | JoinMessage
+  | SignalMessage
+  | JoinedResponseMessage
+  | PeerJoinedMessage
+  | PeerLeftMessage
+  | SignalResponseMessage;
+
+interface PeerInfo {
+  peerId: string;
+  connected: boolean;
+}
+
+interface ChatMessage {
+  peerId: string;
+  message: string;
+}
+
+export default function WebRTCPage() {
+  const [roomId, setRoomId] = useState('test1');
+  const [clientId, setClientId] = useState('');
+  const [connected, setConnected] = useState(false);
+  const [peers, setPeers] = useState<PeerInfo[]>([]);
+  const [message, setMessage] = useState('');
+  const [receivedMessages, setReceivedMessages] = useState<ChatMessage[]>([]);
+  const [status, setStatus] = useState('Disconnected');
+
+  const socketRef = useRef<WebSocket | null>(null);
+  const peersRef = useRef(new Map());
+
+  useEffect(() => {
+    return () => {
+      // Clean up WebSocket on unmount
+      if (socketRef.current) {
+        socketRef.current?.close();
+      }
+
+      // Clean up peers
+      peersRef.current.forEach(peer => {
+        if (peer) peer.destroy();
+      });
+    };
+  }, []);
+
+  const connectToRoom = () => {
+    setStatus('Connecting to signaling server...');
+
+    // Connect to signaling server
+    const socket = new WebSocket('ws://localhost:5000');
+    socketRef.current = socket;
+
+    socket.onopen = () => {
+      setStatus('Connected to signaling server. Joining room...');
+      socket.send(JSON.stringify({
+        type: 'join',
+        roomId
+      }));
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data) as WebSocketMessage;
+
+      switch (data.type) {
+        case 'joined':
+          setClientId(data.clientId);
+          setConnected(true);
+          setStatus(`Connected! Your ID: ${data.clientId}`);
+
+          // Create peers for any existing clients in the room
+          data.peers.forEach(peerId => {
+            createPeer(peerId, false);
+          });
+          break;
+
+        case 'peer-joined':
+          setStatus(`New peer joined: ${data.peerId}`);
+          createPeer(data.peerId, true);
+          break;
+
+        case 'peer-left':
+          setStatus(`Peer left: ${data.peerId}`);
+          if (peersRef.current.has(data.peerId)) {
+            peersRef.current.get(data.peerId).destroy();
+            peersRef.current.delete(data.peerId);
+            setPeers(current => current.filter(p => p.peerId !== data.peerId));
+          }
+          break;
+
+        case 'signal':
+          const peer = peersRef.current.get(data.peerId);
+          if (peer) {
+            peer.signal(data.signal);
+          }
+          break;
+      }
+    };
+
+    socket.onclose = () => {
+      setStatus('Disconnected from signaling server');
+      setConnected(false);
+    };
+
+    socket.onerror = (error) => {
+      setStatus('Error connecting to signaling server');
+      console.error('WebSocket error:', error);
+    };
+  };
+
+  const createPeer = (peerId: string, initiator: boolean) => {
+    setStatus(`Creating ${initiator ? 'initiating' : 'receiving'} peer connection to ${peerId}`);
+
+    const peer = new SimplePeer({
+      initiator,
+      trickle: false,
+      config: {
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      }
+    });
+
+    peer.on('signal', signal => {
+      socketRef.current?.send(JSON.stringify({
+        type: 'signal',
+        peerId,
+        signal
+      }));
+    });
+
+    peer.on('connect', () => {
+      setStatus(`Connected to peer: ${peerId}`);
+      setPeers(peers => [...peers.filter(p => p.peerId !== peerId), { peerId, connected: true }]);
+    });
+
+    peer.on('data', data => {
+      const message = data.toString();
+      setReceivedMessages(msgs => [...msgs, { peerId, message }]);
+    });
+
+    peer.on('close', () => {
+      setStatus(`Connection to peer ${peerId} closed`);
+      setPeers(peers => peers.filter(p => p.peerId !== peerId));
+      peersRef.current.delete(peerId);
+    });
+
+    peer.on('error', err => {
+      console.error(`Peer connection error with ${peerId}:`, err);
+      setStatus(`Error in connection to ${peerId}: ${err.message}`);
+    });
+
+    peersRef.current.set(peerId, peer);
+    setPeers(peers => [...peers.filter(p => p.peerId !== peerId), { peerId, connected: false }]);
+
+    return peer;
+  };
+
+  const sendMessage = () => {
+    if (!message.trim()) return;
+
+    peersRef.current.forEach(peer => {
+      if (peer.connected) {
+        peer.send(message);
+      }
+    });
+
+    setReceivedMessages(msgs => [...msgs, { peerId: 'You', message }]);
+    setMessage('');
+  };
+
+  const disconnectFromRoom = () => {
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+
+    peersRef.current.forEach(peer => {
+      peer.destroy();
+    });
+
+    peersRef.current = new Map();
+    setPeers([]);
+    setConnected(false);
+    setStatus('Disconnected');
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      <h1 className="text-xl font-bold">WebRTC with Signaling Server</h1>
+
+      <div className="p-2 border rounded bg-gray-50 text-black">
+        <p><strong>Status:</strong> {status}</p>
+        {clientId && <p><strong>Your ID:</strong> {clientId}</p>}
+      </div>
+
+      {!connected ? (
+        <div className="flex space-x-2">
+          <input
+            type="text"
+            className="flex-1 border p-2 rounded"
+            placeholder="Room ID"
+            value={roomId}
+            onChange={e => setRoomId(e.target.value)}
+          />
+          <button
+            onClick={connectToRoom}
+            className="px-4 py-2 bg-blue-500 text-white rounded"
+          >
+            Join Room
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <h2 className="font-semibold">Connected Peers</h2>
+            {peers.length === 0 ? (
+              <p className="text-gray-500">No peers connected. Share your room ID with others!</p>
+            ) : (
+              <ul className="list-disc pl-5">
+                {peers.map(peer => (
+                  <li key={peer.peerId}>
+                    {peer.peerId} - {peer.connected ? 'Connected' : 'Connecting...'}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="font-semibold">Messages</h2>
+            <div className="border rounded p-2 h-48 overflow-y-auto bg-white text-black">
+              {receivedMessages.length === 0 ? (
+                <p className="text-gray-500">No messages yet</p>
+              ) : (
+                receivedMessages.map((msg, i) => (
+                  <div key={i} className="mb-1">
+                    <strong>{msg.peerId}:</strong> {msg.message}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                className="flex-1 border p-2 rounded"
+                placeholder="Type a message..."
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                onKeyPress={e => e.key === 'Enter' && sendMessage()}
+              />
+              <button
+                onClick={sendMessage}
+                className="px-4 py-2 bg-green-500 text-white rounded"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={disconnectFromRoom}
+            className="px-4 py-2 bg-red-500 text-white rounded"
+          >
+            Disconnect
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
