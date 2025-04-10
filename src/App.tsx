@@ -64,7 +64,7 @@ type WebSocketMessage =
     | RoomNonexistentMessage
     | SignalResponseMessage;
 
-const SERVER_HOST = import.meta.env.MODE == "development" ? "localhost:5000" : "airbridge-signaling-server.onrender.com"
+const SERVER_HOST = import.meta.env.MODE == "development" ? "ws://localhost:5000" : "wss://airbridge-signaling-server.onrender.com"
 
 export default () => {
     const [filesSelected, setFilesSelected] = useState(false);
@@ -83,7 +83,7 @@ export default () => {
     const peersRef = useRef<Map<string, SimplePeer.Instance>>(new Map());
 
     const connectToRoom = (roomId: string, create = false, init = false): void => {
-        const socket = new WebSocket(`wss://${SERVER_HOST}`);
+        const socket = new WebSocket(`${SERVER_HOST}`);
         socketRef.current = socket;
 
         socket.onopen = () => {
