@@ -1,54 +1,53 @@
-# React + TypeScript + Vite
+# AirBridge
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A mobile-responsive peer-to-peer file sharing app using WebRTC for fast, secure, end-to-end encrypted transfers of any number or size of files.
 
-Currently, two official plugins are available:
+![UI](https://i.postimg.cc/vB2Bg1v8/2025-04-1011-56-09online-video-cutter-com-ezgif-com-video-to-gif-converter.gif)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Mobile-first responsive UI  
+- Peer-to-peer file transfer using WebRTC  
+- End-to-end encrypted communication  
+- Supports any file type and size  
+- Chunked file sending for performance  
+- No cloud storage or intermediaries  
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Live
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+-   Live site at https://air-bridge.netlify.app
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+---
+
+## Setup
+
+Clone this repo to your desktop and run `yarn` in the root directory to install all the dependencies.
+
+---
+
+## Usage
+
+Once the dependencies are installed, you can run:
+
+- `yarn run dev` in the root directory to start the frontend application.
+- `node server.js` in the root directory to start the backend server.
+
+You will then be able to access it at localhost:3000
+
+---
+
+## Authors
+
+[@K Davidson](mailto:kaushdavidson@icloud.com)
+
+---
+
+## License
+
+> You can check out the full license [here](LICENSE.md)
+
+This project is licensed under the terms of the **MIT** license.
